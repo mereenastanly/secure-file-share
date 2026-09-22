@@ -6,6 +6,7 @@ const fileSchema = new mongoose.Schema({
   mimeType: { type: String, required: true },
   size: { type: Number, required: true },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  folder: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null },
   createdAt: { type: Date, default: Date.now },
 });
 

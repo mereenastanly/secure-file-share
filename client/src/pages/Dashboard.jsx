@@ -2,26 +2,88 @@ import { useState, useEffect } from 'react';
 
 function Dashboard() {
   const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [currentFolder, setCurrentFolder] = useState(null); // null = top level
+  const [folderPath, setFolderPath] = useState([]); // for breadcrumb
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
 
   const token = localStorage.getItem('token');
 
-  const fetchFiles = async () => {
+  const fetchContents = async (folderId) => {
     try {
-      const res = await fetch('http://localhost:5000/api/files', {
+      const url = folderId
+        ? `http://localhost:5000/api/folders/contents?parentFolder=${folderId}`
+        : `http://localhost:5000/api/folders/contents`;
+
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setFiles(data);
+      setFolders(data.folders);
+      setFiles(data.files);
     } catch (err) {
-      setMessage('Could not load files.');
+      setMessage('Could not load contents.');
     }
   };
 
   useEffect(() => {
-    fetchFiles();
-  }, []);
+    fetchContents(currentFolder);
+  }, [currentFolder]);
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+
+    try {
+      await fetch('http://localhost:5000/api/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newFolderName, parentFolder: currentFolder }),
+      });
+      setNewFolderName('');
+      fetchContents(currentFolder);
+    } catch (err) {
+      setMessage('Could not create folder.');
+    }
+  };
+
+  const openFolder = (folder) => {
+    setFolderPath([...folderPath, folder]);
+    setCurrentFolder(folder._id);
+  };
+
+  const goToBreadcrumb = (index) => {
+    if (index === -1) {
+      setFolderPath([]);
+      setCurrentFolder(null);
+    } else {
+      const newPath = folderPath.slice(0, index + 1);
+      setFolderPath(newPath);
+      setCurrentFolder(newPath[newPath.length - 1]._id);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    if (!window.confirm('Delete this folder? It must be empty.')) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/folders/${folderId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.message);
+        return;
+      }
+      fetchContents(currentFolder);
+    } catch (err) {
+      setMessage('Delete failed.');
+    }
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -31,7 +93,6 @@ function Dashboard() {
     setMessage('');
 
     try {
-      // Step 1: ask backend for a pre-signed upload URL
       const urlRes = await fetch('http://localhost:5000/api/upload/request-url', {
         method: 'POST',
         headers: {
@@ -53,14 +114,12 @@ function Dashboard() {
         return;
       }
 
-      // Step 2: upload the actual file directly to S3
       await fetch(urlData.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': file.type },
         body: file,
       });
 
-      // Step 3: tell backend the upload succeeded, save metadata
       await fetch('http://localhost:5000/api/upload/confirm', {
         method: 'POST',
         headers: {
@@ -72,11 +131,12 @@ function Dashboard() {
           s3Key: urlData.s3Key,
           mimeType: file.type,
           size: file.size,
+          folder: currentFolder,
         }),
       });
 
       setMessage('File uploaded successfully!');
-      fetchFiles();
+      fetchContents(currentFolder);
     } catch (err) {
       setMessage('Upload failed.');
     } finally {
@@ -92,15 +152,74 @@ function Dashboard() {
     window.open(data.downloadUrl, '_blank');
   };
 
+  const handleDelete = async (fileId) => {
+    if (!window.confirm('Delete this file?')) return;
+    try {
+      await fetch(`http://localhost:5000/api/files/${fileId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchContents(currentFolder);
+    } catch (err) {
+      setMessage('Delete failed.');
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '600px', margin: '3rem auto', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: '700px', margin: '3rem auto', fontFamily: 'sans-serif' }}>
       <h2>My Files</h2>
 
+      {/* Breadcrumb */}
+      <div style={{ marginBottom: '1rem' }}>
+        <button onClick={() => goToBreadcrumb(-1)} style={{ marginRight: '0.5rem' }}>
+          Home
+        </button>
+        {folderPath.map((f, i) => (
+          <span key={f._id}>
+            {' / '}
+            <button onClick={() => goToBreadcrumb(i)}>{f.name}</button>
+          </span>
+        ))}
+      </div>
+
+      {/* Create folder */}
+      <div style={{ marginBottom: '1rem' }}>
+        <input
+          type="text"
+          placeholder="New folder name"
+          value={newFolderName}
+          onChange={(e) => setNewFolderName(e.target.value)}
+        />
+        <button onClick={handleCreateFolder} style={{ marginLeft: '0.5rem' }}>
+          Create Folder
+        </button>
+      </div>
+
+      {/* Upload */}
       <input type="file" onChange={handleUpload} disabled={uploading} />
       {uploading && <p>Uploading...</p>}
       {message && <p>{message}</p>}
 
+      {/* Folder list */}
       <ul style={{ marginTop: '2rem', listStyle: 'none', padding: 0 }}>
+        {folders.map((folder) => (
+          <li
+            key={folder._id}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              padding: '0.5rem 0',
+              borderBottom: '1px solid #ddd',
+            }}
+          >
+            <span style={{ cursor: 'pointer' }} onClick={() => openFolder(folder)}>
+              📁 {folder.name}
+            </span>
+            <button onClick={() => handleDeleteFolder(folder._id)}>Delete</button>
+          </li>
+        ))}
+
+        {/* File list */}
         {files.map((file) => (
           <li
             key={file._id}
@@ -112,7 +231,12 @@ function Dashboard() {
             }}
           >
             <span>{file.filename} ({Math.round(file.size / 1024)} KB)</span>
-            <button onClick={() => handleDownload(file._id)}>Download</button>
+            <div>
+              <button onClick={() => handleDownload(file._id)}>Download</button>
+              <button onClick={() => handleDelete(file._id)} style={{ marginLeft: '0.5rem' }}>
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
