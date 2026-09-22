@@ -12,17 +12,15 @@ function App() {
   }
 
   return (
-    <div>
+    <div className="auth-shell">
       {showLogin ? (
         <Login onLoginSuccess={() => setLoggedIn(true)} />
       ) : (
         <Register />
       )}
-      <div style={{ textAlign: 'center' }}>
-        <button onClick={() => setShowLogin(!showLogin)}>
-          {showLogin ? 'Need an account? Register' : 'Already have an account? Login'}
-        </button>
-      </div>
+      <button className="auth-switch" onClick={() => setShowLogin(!showLogin)}>
+        {showLogin ? 'Need an account? Register' : 'Already have an account? Login'}
+      </button>
     </div>
   );
 }

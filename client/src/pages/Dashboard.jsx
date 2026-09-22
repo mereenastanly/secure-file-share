@@ -5,8 +5,8 @@ const API_URL = import.meta.env.VITE_API_URL;
 function Dashboard() {
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
-  const [currentFolder, setCurrentFolder] = useState(null); // null = top level
-  const [folderPath, setFolderPath] = useState([]); // for breadcrumb
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [folderPath, setFolderPath] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
@@ -36,7 +36,6 @@ function Dashboard() {
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-
     try {
       await fetch(`${API_URL}/api/folders`, {
         method: 'POST',
@@ -177,7 +176,7 @@ function Dashboard() {
 
       if (res.ok) {
         navigator.clipboard.writeText(data.shareUrl);
-        setMessage(`Share link copied! Expires: ${new Date(data.expiresAt).toLocaleString()}`);
+        setMessage(`Share link copied — expires ${new Date(data.expiresAt).toLocaleString()}`);
       } else {
         setMessage(data.message || 'Could not create share link.');
       }
@@ -186,83 +185,80 @@ function Dashboard() {
     }
   };
 
-  return (
-    <div style={{ maxWidth: '700px', margin: '3rem auto', fontFamily: 'sans-serif' }}>
-      <h2>My Files</h2>
+  const logout = () => {
+    localStorage.removeItem('token');
+    window.location.reload();
+  };
 
-      {/* Breadcrumb */}
-      <div style={{ marginBottom: '1rem' }}>
-        <button onClick={() => goToBreadcrumb(-1)} style={{ marginRight: '0.5rem' }}>
-          Home
-        </button>
+  return (
+    <div className="dash-shell">
+      <div className="dash-header">
+        <h2>My Files</h2>
+        <button className="btn-chip" onClick={logout}>Log out</button>
+      </div>
+
+      <div className="breadcrumb">
+        <button className="crumb" onClick={() => goToBreadcrumb(-1)}>Home</button>
         {folderPath.map((f, i) => (
-          <span key={f._id}>
-            {' / '}
-            <button onClick={() => goToBreadcrumb(i)}>{f.name}</button>
+          <span key={f._id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span className="crumb-sep">/</span>
+            <button className="crumb" onClick={() => goToBreadcrumb(i)}>{f.name}</button>
           </span>
         ))}
       </div>
 
-      {/* Create folder */}
-      <div style={{ marginBottom: '1rem' }}>
+      <div className="toolbar">
         <input
           type="text"
           placeholder="New folder name"
           value={newFolderName}
           onChange={(e) => setNewFolderName(e.target.value)}
         />
-        <button onClick={handleCreateFolder} style={{ marginLeft: '0.5rem' }}>
-          Create Folder
+        <button className="btn-secondary" onClick={handleCreateFolder}>
+          + Folder
         </button>
       </div>
 
-      {/* Upload */}
-      <input type="file" onChange={handleUpload} disabled={uploading} />
-      {uploading && <p>Uploading...</p>}
-      {message && <p>{message}</p>}
+      <div className="upload-zone">
+        <input type="file" onChange={handleUpload} disabled={uploading} />
+        {uploading && <span style={{ color: 'var(--accent)', fontSize: '0.85rem' }}>Uploading…</span>}
+      </div>
 
-      {/* Folder list */}
-      <ul style={{ marginTop: '2rem', listStyle: 'none', padding: 0 }}>
+      {message && <p className="status-line">{message}</p>}
+
+      <ul className="entry-list">
         {folders.map((folder) => (
-          <li
-            key={folder._id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '0.5rem 0',
-              borderBottom: '1px solid #ddd',
-            }}
-          >
-            <span style={{ cursor: 'pointer' }} onClick={() => openFolder(folder)}>
-              📁 {folder.name}
+          <li className="entry-row" key={folder._id}>
+            <span className="entry-name folder" onClick={() => openFolder(folder)}>
+              <span className="entry-icon gold">▸</span>
+              {folder.name}
             </span>
-            <button onClick={() => handleDeleteFolder(folder._id)}>Delete</button>
-          </li>
-        ))}
-
-        {/* File list */}
-        {files.map((file) => (
-          <li
-            key={file._id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '0.5rem 0',
-              borderBottom: '1px solid #ddd',
-            }}
-          >
-            <span>{file.filename} ({Math.round(file.size / 1024)} KB)</span>
-            <div>
-              <button onClick={() => handleDownload(file._id)}>Download</button>
-              <button onClick={() => handleShare(file._id)} style={{ marginLeft: '0.5rem' }}>
-                Share
-              </button>
-              <button onClick={() => handleDelete(file._id)} style={{ marginLeft: '0.5rem' }}>
+            <div className="entry-actions">
+              <button className="btn-chip danger" onClick={() => handleDeleteFolder(folder._id)}>
                 Delete
               </button>
             </div>
           </li>
         ))}
+
+        {files.map((file) => (
+          <li className="entry-row" key={file._id}>
+            <span className="entry-name">
+              <span className="entry-icon">●</span>
+              {file.filename}
+              <span className="entry-meta">&nbsp;· {Math.round(file.size / 1024)} KB</span>
+            </span>
+            <div className="entry-actions">
+              <button className="btn-chip" onClick={() => handleDownload(file._id)}>Download</button>
+              <button className="btn-chip share" onClick={() => handleShare(file._id)}>Share</button>
+              <button className="btn-chip danger" onClick={() => handleDelete(file._id)}>Delete</button>
+            </div>
+          </li>
+        ))}
+
+        {folders.length === 0 && files.length === 0 && (
+          <li className="empty-state">This folder is empty. Upload a file or create a folder to get started.</li>
+        )}
       </ul>
     </div>
   );

@@ -33,34 +33,33 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '4rem auto', fontFamily: 'sans-serif' }}>
-      <h2>Login</h2>
+    <div className="auth-card">
+      <div className="auth-eyebrow">Secure File Share</div>
+      <h2>Welcome back</h2>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Email</label><br />
+        <div className="field">
+          <label>Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            style={{ width: '100%', padding: '0.5rem' }}
           />
         </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Password</label><br />
+        <div className="field">
+          <label>Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ width: '100%', padding: '0.5rem' }}
           />
         </div>
-        <button type="submit" style={{ padding: '0.5rem 1rem' }}>
+        <button type="submit" className="btn-primary">
           Login
         </button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p className="auth-message">{message}</p>}
     </div>
   );
 }
