@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function Dashboard() {
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -14,8 +16,8 @@ function Dashboard() {
   const fetchContents = async (folderId) => {
     try {
       const url = folderId
-        ? `http://localhost:5000/api/folders/contents?parentFolder=${folderId}`
-        : `http://localhost:5000/api/folders/contents`;
+        ? `${API_URL}/api/folders/contents?parentFolder=${folderId}`
+        : `${API_URL}/api/folders/contents`;
 
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -36,7 +38,7 @@ function Dashboard() {
     if (!newFolderName.trim()) return;
 
     try {
-      await fetch('http://localhost:5000/api/folders', {
+      await fetch(`${API_URL}/api/folders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,7 +72,7 @@ function Dashboard() {
   const handleDeleteFolder = async (folderId) => {
     if (!window.confirm('Delete this folder? It must be empty.')) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/folders/${folderId}`, {
+      const res = await fetch(`${API_URL}/api/folders/${folderId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -93,7 +95,7 @@ function Dashboard() {
     setMessage('');
 
     try {
-      const urlRes = await fetch('http://localhost:5000/api/upload/request-url', {
+      const urlRes = await fetch(`${API_URL}/api/upload/request-url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +122,7 @@ function Dashboard() {
         body: file,
       });
 
-      await fetch('http://localhost:5000/api/upload/confirm', {
+      await fetch(`${API_URL}/api/upload/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +147,7 @@ function Dashboard() {
   };
 
   const handleDownload = async (fileId) => {
-    const res = await fetch(`http://localhost:5000/api/files/${fileId}/download`, {
+    const res = await fetch(`${API_URL}/api/files/${fileId}/download`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
@@ -155,7 +157,7 @@ function Dashboard() {
   const handleDelete = async (fileId) => {
     if (!window.confirm('Delete this file?')) return;
     try {
-      await fetch(`http://localhost:5000/api/files/${fileId}`, {
+      await fetch(`${API_URL}/api/files/${fileId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -164,24 +166,25 @@ function Dashboard() {
       setMessage('Delete failed.');
     }
   };
-  const handleShare = async (fileId) => {
-  try {
-    const res = await fetch(`http://localhost:5000/api/share/${fileId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
 
-    if (res.ok) {
-      navigator.clipboard.writeText(data.shareUrl);
-      setMessage(`Share link copied! Expires: ${new Date(data.expiresAt).toLocaleString()}`);
-    } else {
-      setMessage(data.message || 'Could not create share link.');
+  const handleShare = async (fileId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/share/${fileId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        navigator.clipboard.writeText(data.shareUrl);
+        setMessage(`Share link copied! Expires: ${new Date(data.expiresAt).toLocaleString()}`);
+      } else {
+        setMessage(data.message || 'Could not create share link.');
+      }
+    } catch (err) {
+      setMessage('Share failed.');
     }
-  } catch (err) {
-    setMessage('Share failed.');
-  }
-};
+  };
 
   return (
     <div style={{ maxWidth: '700px', margin: '3rem auto', fontFamily: 'sans-serif' }}>
@@ -250,14 +253,14 @@ function Dashboard() {
           >
             <span>{file.filename} ({Math.round(file.size / 1024)} KB)</span>
             <div>
-  <button onClick={() => handleDownload(file._id)}>Download</button>
-  <button onClick={() => handleShare(file._id)} style={{ marginLeft: '0.5rem' }}>
-    Share
-  </button>
-  <button onClick={() => handleDelete(file._id)} style={{ marginLeft: '0.5rem' }}>
-    Delete
-  </button>
-</div>
+              <button onClick={() => handleDownload(file._id)}>Download</button>
+              <button onClick={() => handleShare(file._id)} style={{ marginLeft: '0.5rem' }}>
+                Share
+              </button>
+              <button onClick={() => handleDelete(file._id)} style={{ marginLeft: '0.5rem' }}>
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
