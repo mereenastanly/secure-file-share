@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const ShareLink = require('./models/ShareLink');
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -226,7 +228,69 @@ app.delete('/api/folders/:id', verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+// CREATE A SHARE LINK (protected)
+app.post('/api/share/:fileId', verifyToken, async (req, res) => {
+  try {
+    const file = await File.findById(req.params.fileId);
 
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    if (file.owner.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const token = crypto.randomBytes(16).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+    const shareLink = new ShareLink({
+      file: file._id,
+      token,
+      createdBy: req.userId,
+      expiresAt,
+    });
+
+    await shareLink.save();
+
+    const shareUrl = `${req.protocol}://${req.get('host')}/api/share/${token}`;
+    res.status(201).json({ shareUrl, expiresAt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ACCESS A SHARED FILE (public — no auth required)
+app.get('/api/share/:token', async (req, res) => {
+  try {
+    const shareLink = await ShareLink.findOne({ token: req.params.token });
+
+    if (!shareLink) {
+      return res.status(404).send('This link is invalid.');
+    }
+
+    if (new Date() > shareLink.expiresAt) {
+      return res.status(410).send('This link has expired.');
+    }
+
+    const file = await File.findById(shareLink.file);
+    if (!file) {
+      return res.status(404).send('The shared file no longer exists.');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: file.s3Key,
+    });
+
+    const downloadUrl = await getSignedUrl(s3, command, { expiresIn: 60 });
+
+    res.redirect(downloadUrl);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected successfully'))
   .catch((err) => console.error('MongoDB connection error:', err));

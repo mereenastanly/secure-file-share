@@ -164,6 +164,24 @@ function Dashboard() {
       setMessage('Delete failed.');
     }
   };
+  const handleShare = async (fileId) => {
+  try {
+    const res = await fetch(`http://localhost:5000/api/share/${fileId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      navigator.clipboard.writeText(data.shareUrl);
+      setMessage(`Share link copied! Expires: ${new Date(data.expiresAt).toLocaleString()}`);
+    } else {
+      setMessage(data.message || 'Could not create share link.');
+    }
+  } catch (err) {
+    setMessage('Share failed.');
+  }
+};
 
   return (
     <div style={{ maxWidth: '700px', margin: '3rem auto', fontFamily: 'sans-serif' }}>
@@ -232,11 +250,14 @@ function Dashboard() {
           >
             <span>{file.filename} ({Math.round(file.size / 1024)} KB)</span>
             <div>
-              <button onClick={() => handleDownload(file._id)}>Download</button>
-              <button onClick={() => handleDelete(file._id)} style={{ marginLeft: '0.5rem' }}>
-                Delete
-              </button>
-            </div>
+  <button onClick={() => handleDownload(file._id)}>Download</button>
+  <button onClick={() => handleShare(file._id)} style={{ marginLeft: '0.5rem' }}>
+    Share
+  </button>
+  <button onClick={() => handleDelete(file._id)} style={{ marginLeft: '0.5rem' }}>
+    Delete
+  </button>
+</div>
           </li>
         ))}
       </ul>
