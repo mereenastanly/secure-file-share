@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function Login() {
+function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -21,6 +21,7 @@ function Login() {
       if (res.ok) {
         localStorage.setItem('token', data.token);
         setMessage('Login successful!');
+        onLoginSuccess();
       } else {
         setMessage(data.message || 'Invalid credentials.');
       }
